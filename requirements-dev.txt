@@ -1,0 +1,5 @@
+# Developer tooling: tests, linting, type-checking.
+pytest>=8.0
+pytest-cov>=5.0
+ruff>=0.4
+mypy>=1.9

@@ -1,0 +1,96 @@
+# sabench: full-data config with the pyannote VAD (required, no energy fallback).
+# Same shape as default.yaml, only paths differ (expected_counts match the published full-dataset
+# counts, same as default.yaml). Use with --config configs/full.yaml.
+
+seed: 1234
+
+paths:
+  raw: ../run_full
+  interim: ../run_full/pyannote/interim
+  features: ../run_full/pyannote/features
+  splits: ../run_full/splits
+  results: ../run_full/pyannote/results
+  manifests:
+    adress: ../run_full/manifest_adress.csv
+    adresso: ../run_full/manifest_adresso.csv
+    pitt: ../run_full/manifest_pitt.csv
+    taukadial: ../run_full/manifest_taukadial.csv
+
+datasets: [adress, adresso, pitt, taukadial]
+
+expected_counts:
+  adress:  { train: { "0": 54, "1": 54 }, test: { "0": 24, "1": 24 } }
+  adresso: { train: { "0": 79, "1": 87 }, test: { "0": 36, "1": 35 } }
+  pitt:    { train: { "0": 69, "1": 103 }, test: { "0": 30, "1": 44 } }   # Pitt-wide benchmark (scripts/build_manifests.py)
+  taukadial: { train: { "0": 165, "1": 222 }, test: { "0": 57, "1": 63 } }   # recordings (3 per speaker)
+
+audio:
+  sample_rate: 16000
+  variants: [full, speech, silence]
+  min_variant_seconds: 1.0
+
+vad:
+  model: pyannote/segmentation-3.0
+  backend: pyannote                  # required: fail instead of falling back to energy VAD
+  min_duration_on: 0.0
+  min_duration_off: 0.0
+  fallback: energy
+  energy_frame_ms: 30
+  energy_hop_ms: 10
+  energy_threshold_db: -35.0
+
+lld:
+  featuresets: [eGeMAPSv02, ComParE_2016]
+
+search:
+  top_k: 50
+  rank_method: smd
+  cv_folds: 5
+  cv_repeats: 20     # inner-CV shufflings averaged for train_only selection (results/tables/repeats_stability.csv)
+  regimes: [test_informed, train_only]
+
+permutation_null:
+  n_permutations: 1000
+  n_jobs: -1
+
+uncertainty:
+  n_bootstrap: 2000
+  alpha: 0.05
+  n_monte_carlo: 100
+  test_size: 0.30
+  cv_folds: 5
+  cv_repeats: 20
+
+embeddings:
+  chunk_seconds: 30
+  device: auto
+  models:
+    wavlm: microsoft/wavlm-base-plus
+    wav2vec2: facebook/wav2vec2-base
+    whisper: openai/whisper-base
+  probe:
+    cs: [0.0001, 0.001, 0.01, 0.1, 1.0, 10.0]
+    cv_folds: 5
+    cv_repeats: 10   # inner-CV shufflings for C and layer selection (seed-stable layer choice)
+
+channel:
+  ltas_bands: 8
+
+interventions:
+  loudness_target_lufs: -23.0
+  band_limit_hz: [80, 8000]
+  noise_floor_match_db: -45.0
+
+cross_dataset:
+  check_speaker_overlap: true
+
+replication:
+  tolerance: 0.03
+  targets:
+    adress:  { test_f1: 0.875, mc_mean: 0.622 }
+    adresso: { test_f1: 0.831, mc_mean: 0.667 }
+
+logging:
+  level: INFO
+  json_format: false
+  file: ../run_full/pyannote/sabench.log

@@ -1,0 +1,93 @@
+# sabench: config for smoke-testing the pipeline on the 10% Data_sample subset.
+# Same shape as default.yaml, only paths/expected_counts differ. Use with --config configs/sample.yaml.
+
+seed: 1234
+
+paths:
+  raw: ../run_sample
+  interim: ../run_sample/interim
+  features: ../run_sample/features
+  splits: ../run_sample/splits
+  results: ../run_sample/results
+  manifests:
+    adress: ../run_sample/manifest_adress.csv
+    adresso: ../run_sample/manifest_adresso.csv
+
+datasets: [adress, adresso]
+
+# Actual label counts in the 10% sample (see Data_sample/SAMPLE_SUMMARY.txt); not the published
+# full-dataset counts, so `sabench validate` is checked against the sample itself.
+expected_counts:
+  adress:  { train: { "0": 5, "1": 5 }, test: { "0": 2, "1": 3 } }
+  adresso: { train: { "0": 8, "1": 9 }, test: { "0": 3, "1": 4 } }
+
+audio:
+  sample_rate: 16000
+  variants: [full, speech, silence]
+  min_variant_seconds: 1.0
+
+vad:
+  model: pyannote/segmentation-3.0
+  backend: energy                    # results in this config were produced with the energy VAD
+  min_duration_on: 0.0
+  min_duration_off: 0.0
+  fallback: energy
+  energy_frame_ms: 30
+  energy_hop_ms: 10
+  energy_threshold_db: -35.0
+
+lld:
+  featuresets: [eGeMAPSv02, ComParE_2016]
+
+search:
+  top_k: 50
+  rank_method: smd
+  cv_folds: 5
+  cv_repeats: 20     # inner-CV shufflings averaged for train_only selection (results/tables/repeats_stability.csv)
+  regimes: [test_informed, train_only]
+
+permutation_null:
+  n_permutations: 1000
+  n_jobs: -1
+
+uncertainty:
+  n_bootstrap: 2000
+  alpha: 0.05
+  n_monte_carlo: 100
+  test_size: 0.30
+  cv_folds: 5
+  cv_repeats: 20
+
+embeddings:
+  chunk_seconds: 30
+  device: auto
+  models:
+    wavlm: microsoft/wavlm-base-plus
+    wav2vec2: facebook/wav2vec2-base
+    whisper: openai/whisper-base
+  probe:
+    cs: [0.0001, 0.001, 0.01, 0.1, 1.0, 10.0]
+    cv_folds: 5
+    cv_repeats: 10   # inner-CV shufflings for C and layer selection (seed-stable layer choice)
+
+channel:
+  ltas_bands: 8
+
+interventions:
+  loudness_target_lufs: -23.0
+  band_limit_hz: [80, 8000]
+  noise_floor_match_db: -45.0
+
+cross_dataset:
+  check_speaker_overlap: true
+
+replication:
+  tolerance: 0.03
+  targets:
+    adress:  { test_f1: 0.875, mc_mean: 0.622 }
+    adresso: { test_f1: 0.831, mc_mean: 0.667 }
+
+logging:
+  level: INFO
+  json_format: false
+  file: ../run_sample/results/logs/sabench.log

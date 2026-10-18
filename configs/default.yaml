@@ -1,0 +1,94 @@
+# sabench: central experiment configuration.
+# Every stage reads this file. Change values here, not in code. Override with `--config path.yaml`
+# or `--set key.path=value` on any CLI command.
+
+seed: 1234
+
+paths:
+  raw: data/raw
+  interim: data/interim
+  features: features
+  splits: splits
+  results: results
+  manifests:
+    adress: data/manifest_adress.csv
+    adresso: data/manifest_adresso.csv
+
+datasets: [adress, adresso]
+
+# Published counts used by `sabench validate`.
+expected_counts:
+  adress:  { train: { "0": 54, "1": 54 }, test: { "0": 24, "1": 24 } }
+  # Official ADReSSo release: 79 CN / 87 AD in train. The base paper's Table 1 swaps these.
+  adresso: { train: { "0": 79, "1": 87 }, test: { "0": 36, "1": 35 } }
+
+audio:
+  sample_rate: 16000
+  variants: [full, speech, silence]
+  min_variant_seconds: 1.0   # variants shorter than this are flagged and get NaN features
+
+vad:
+  model: pyannote/segmentation-3.0   # gated; needs HF_TOKEN
+  min_duration_on: 0.0
+  min_duration_off: 0.0
+  fallback: energy                   # used automatically if pyannote/HF_TOKEN is unavailable
+  energy_frame_ms: 30
+  energy_hop_ms: 10
+  energy_threshold_db: -35.0
+
+lld:
+  featuresets: [eGeMAPSv02, ComParE_2016]
+
+search:
+  top_k: 50          # working value; original paper does not state K (see docs/DECISIONS.md)
+  rank_method: smd   # smd (vectorised standardised mean difference) or lr (single-feature LR macro-F1)
+  cv_folds: 5        # inner CV for the train_only regime
+  cv_repeats: 20     # inner-CV shufflings averaged for train_only selection (results/tables/repeats_stability.csv)
+  regimes: [test_informed, train_only]
+
+permutation_null:
+  n_permutations: 1000
+  n_jobs: -1
+
+uncertainty:
+  n_bootstrap: 2000
+  alpha: 0.05
+  n_monte_carlo: 100
+  test_size: 0.30
+  cv_folds: 5
+  cv_repeats: 20
+
+embeddings:
+  chunk_seconds: 30
+  device: auto    # auto = cuda if available, else cpu
+  models:
+    wavlm: microsoft/wavlm-base-plus
+    wav2vec2: facebook/wav2vec2-base
+    whisper: openai/whisper-base
+  probe:
+    cs: [0.0001, 0.001, 0.01, 0.1, 1.0, 10.0]
+    cv_folds: 5
+    cv_repeats: 10   # inner-CV shufflings for C and layer selection (seed-stable layer choice)
+
+channel:
+  ltas_bands: 8
+
+interventions:
+  loudness_target_lufs: -23.0
+  band_limit_hz: [80, 8000]
+  noise_floor_match_db: -45.0
+
+cross_dataset:
+  check_speaker_overlap: true
+
+# Used to sanity-check replication (gate G1).
+replication:
+  tolerance: 0.03
+  targets:
+    adress:  { test_f1: 0.875, mc_mean: 0.622 }
+    adresso: { test_f1: 0.831, mc_mean: 0.667 }
+
+logging:
+  level: INFO
+  json_format: false
+  file: results/logs/sabench.log
